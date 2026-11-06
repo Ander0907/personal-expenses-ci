@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 
+CONNECT_TIMEOUT_SECONDS = 3
+"""Maximum seconds libpq waits to establish a database connection."""
+
 
 def create_db_engine(url: str) -> Engine:
     """Create an engine that validates pooled connections before use.
@@ -16,9 +19,15 @@ def create_db_engine(url: str) -> Engine:
         url: SQLAlchemy database URL.
 
     Returns:
-        A new ``Engine`` with ``pool_pre_ping`` enabled.
+        A new ``Engine`` with ``pool_pre_ping`` enabled and a bounded
+        connection timeout, so health checks fail fast with a 503 instead of
+        hanging when the database host is unreachable.
     """
-    return create_engine(url, pool_pre_ping=True)
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        connect_args={"connect_timeout": CONNECT_TIMEOUT_SECONDS},
+    )
 
 
 @lru_cache

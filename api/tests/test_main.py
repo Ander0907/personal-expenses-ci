@@ -36,6 +36,14 @@ def test_module_level_app_is_a_fastapi_instance() -> None:
     assert isinstance(app, FastAPI)
 
 
+def test_create_app_registers_the_health_route() -> None:
+    """Create app registers the /health route."""
+    application = create_app()
+
+    assert "/health" in application.openapi()["paths"]
+    assert application.url_path_for("health") == "/health"
+
+
 def test_openapi_schema_is_served_with_the_app_title() -> None:
     """Openapi schema is served with the app title."""
     client = TestClient(create_app())
