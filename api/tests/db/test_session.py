@@ -33,13 +33,15 @@ def clean_caches() -> Iterator[None]:
     get_session_factory.cache_clear()
 
 
-def test_create_db_engine_enables_pool_pre_ping() -> None:
-    """Create db engine calls create_engine with pool_pre_ping and returns it."""
+def test_create_db_engine_enables_pool_pre_ping_and_connect_timeout() -> None:
+    """Create db engine sets pool_pre_ping and a bounded connect timeout."""
     with patch("app.db.session.create_engine") as fake_create:
         result = create_db_engine("postgresql+psycopg://u:p@h:5432/d")
 
     fake_create.assert_called_once_with(
-        "postgresql+psycopg://u:p@h:5432/d", pool_pre_ping=True
+        "postgresql+psycopg://u:p@h:5432/d",
+        pool_pre_ping=True,
+        connect_args={"connect_timeout": 3},
     )
     assert result is fake_create.return_value
 
