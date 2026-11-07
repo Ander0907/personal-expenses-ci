@@ -58,6 +58,13 @@ def test_create_app_registers_the_expenses_route() -> None:
     assert "/expenses" in application.openapi()["paths"]
 
 
+def test_create_app_registers_the_monthly_report_route() -> None:
+    """Create app registers the /reports/monthly route."""
+    application = create_app()
+
+    assert "/reports/monthly" in application.openapi()["paths"]
+
+
 def test_openapi_schema_is_served_with_the_app_title() -> None:
     """Openapi schema is served with the app title."""
     client = TestClient(create_app())

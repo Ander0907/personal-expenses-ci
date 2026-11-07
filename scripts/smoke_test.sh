@@ -9,6 +9,7 @@
 #   4. POST /expenses    -> expenses are written; over_budget is computed in SQL
 #   5. GET  /expenses    -> they are read back, filtered by category
 #   6. DELETE /expenses  -> one is removed and no longer listed
+#   7. GET  /reports/monthly -> the remaining expense is aggregated in SQL
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:${API_PORT:-8000}}"
@@ -25,6 +26,9 @@ RUN_ID="$(date +%s)-$$"
 RESPONSE_STATUS=""
 RESPONSE_BODY=""
 CATEGORY_ID=""
+CATEGORY_NAME=""
+# UTC, matching the API container clock used by the no-future-dates rule.
+TODAY="$(date -u +%Y-%m-%d)"
 
 log() {
   echo "[smoke] $*"
@@ -102,17 +106,15 @@ check_health_body() {
 }
 
 check_expense_round_trip() {
-  local today first_id second_id
-  # UTC, matching the API container clock used by the no-future-dates rule.
-  today="$(date -u +%Y-%m-%d)"
+  local first_id second_id
 
-  http_request POST /expenses "{\"category_id\": ${CATEGORY_ID}, \"amount\": \"20.00\", \"description\": \"Smoke lunch\", \"spent_at\": \"${today}\"}"
+  http_request POST /expenses "{\"category_id\": ${CATEGORY_ID}, \"amount\": \"20.00\", \"description\": \"Smoke lunch\", \"spent_at\": \"${TODAY}\"}"
   expect_status 201 "Create expense within budget"
   expect_body_contains '"over_budget":false' "Create expense within budget"
   first_id="$(json_id)"
   log "Created expense within budget: $RESPONSE_BODY"
 
-  http_request POST /expenses "{\"category_id\": ${CATEGORY_ID}, \"amount\": \"200.00\", \"description\": \"Smoke trip\", \"spent_at\": \"${today}\"}"
+  http_request POST /expenses "{\"category_id\": ${CATEGORY_ID}, \"amount\": \"200.00\", \"description\": \"Smoke trip\", \"spent_at\": \"${TODAY}\"}"
   expect_status 201 "Create expense over budget"
   expect_body_contains '"over_budget":true' "Create expense over budget"
   second_id="$(json_id)"
@@ -141,6 +143,7 @@ check_category_round_trip() {
   expect_status 201 "Create category"
   expect_body_contains "\"name\":\"${name}\"" "Create category"
   CATEGORY_ID="$(json_id)"
+  CATEGORY_NAME="$name"
   log "Created category: $RESPONSE_BODY"
 
   http_request POST /categories "{\"name\": \"${name^^}\", \"monthly_budget\": \"10.00\"}"
@@ -155,9 +158,28 @@ check_category_round_trip() {
   log "Category read back from the database"
 }
 
+check_monthly_report() {
+  local year month expected
+  year="${TODAY%%-*}"
+  month="${TODAY#*-}"
+  month="$((10#${month%%-*}))"
+  # Only the 20.00 expense remains (the 200.00 one was deleted): 20/150 = 13.33%.
+  expected="{\"category_id\":${CATEGORY_ID},\"name\":\"${CATEGORY_NAME}\",\"monthly_budget\":\"150.00\",\"total_spent\":\"20.00\",\"percent_used\":\"13.33\",\"over_budget\":false}"
+
+  http_request GET "/reports/monthly?year=${year}&month=${month}"
+  expect_status 200 "Monthly report"
+  expect_body_contains "$expected" "Monthly report"
+  log "Monthly report aggregates the category: $expected"
+
+  http_request GET "/reports/monthly?year=${year}&month=13"
+  expect_status 422 "Monthly report with invalid month"
+  log "Invalid month rejected with 422"
+}
+
 wait_for_health
 check_health_body
 check_category_round_trip
 check_expense_round_trip
+check_monthly_report
 
 echo "Smoke test passed"

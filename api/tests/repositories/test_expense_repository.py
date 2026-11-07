@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import ClauseElement
 
 from app.models.expense import Expense
-from app.repositories.expense_repository import ExpenseRepository
+from app.repositories.expense_repository import CategoryTotal, ExpenseRepository
 
 
 def compile_sql(statement: ClauseElement) -> str:
@@ -192,3 +192,111 @@ def test_monthly_total_sums_amounts_for_the_category_and_period() -> None:
     assert (
         "expenses.spent_at >= '2026-11-01' AND expenses.spent_at < '2026-12-01'" in sql
     )
+
+
+MONTH_START = date(2026, 11, 1)
+MONTH_END = date(2026, 12, 1)
+
+
+def totals_session(rows: list[tuple[int, str, Decimal, Decimal | int]]) -> MagicMock:
+    """Build a mock session whose ``execute`` returns the given rows.
+
+    Args:
+        rows: Tuples of ``(id, name, monthly_budget, total)``.
+
+    Returns:
+        The mock session.
+    """
+    session = MagicMock()
+    session.execute.return_value = rows
+    return session
+
+
+def totals_sql() -> str:
+    """Run ``totals_by_category`` against a mock session and compile its SQL.
+
+    Returns:
+        The SQL of the statement handed to ``session.execute``.
+    """
+    session = totals_session([])
+    ExpenseRepository(session).totals_by_category(MONTH_START, MONTH_END)
+    return compile_sql(session.execute.call_args.args[0])
+
+
+def test_totals_by_category_runs_a_single_query() -> None:
+    """Totals by category issues exactly one statement."""
+    session = totals_session([])
+
+    ExpenseRepository(session).totals_by_category(MONTH_START, MONTH_END)
+
+    session.execute.assert_called_once()
+
+
+def test_totals_by_category_maps_rows_to_category_totals() -> None:
+    """Totals by category returns one ``CategoryTotal`` per row, in order."""
+    session = totals_session(
+        [
+            (2, "Bills", Decimal("100.00"), Decimal("40.50")),
+            (1, "Food", Decimal("150.00"), Decimal("20.00")),
+        ]
+    )
+
+    result = ExpenseRepository(session).totals_by_category(MONTH_START, MONTH_END)
+
+    assert result == [
+        CategoryTotal(2, "Bills", Decimal("100.00"), Decimal("40.50")),
+        CategoryTotal(1, "Food", Decimal("150.00"), Decimal("20.00")),
+    ]
+
+
+def test_totals_by_category_converts_the_total_to_decimal() -> None:
+    """Totals by category turns a bare integer zero into a ``Decimal``."""
+    session = totals_session([(1, "Food", Decimal("150.00"), 0)])
+
+    result = ExpenseRepository(session).totals_by_category(MONTH_START, MONTH_END)
+
+    assert isinstance(result[0].total, Decimal)
+    assert result[0].total == Decimal("0")
+
+
+def test_totals_by_category_returns_an_empty_list_without_categories() -> None:
+    """Totals by category returns ``[]`` when there are no rows."""
+    session = totals_session([])
+
+    assert ExpenseRepository(session).totals_by_category(MONTH_START, MONTH_END) == []
+
+
+def test_category_total_is_a_frozen_dataclass() -> None:
+    """Category total rows cannot be mutated."""
+    row = CategoryTotal(1, "Food", Decimal("150.00"), Decimal("0"))
+
+    with pytest.raises(AttributeError):
+        row.total = Decimal("1")  # type: ignore[misc]
+
+
+def test_totals_by_category_left_joins_expenses_to_every_category() -> None:
+    """Totals by category starts at categories and left joins expenses."""
+    sql = totals_sql()
+
+    assert "FROM categories LEFT OUTER JOIN expenses" in sql
+    assert "coalesce(sum(expenses.amount), 0)" in sql
+
+
+def test_totals_by_category_puts_the_date_bounds_in_the_join_condition() -> None:
+    """Totals by category filters dates in ON so empty categories survive."""
+    sql = totals_sql()
+    _, on_keyword, tail = sql.partition(" ON ")
+
+    assert on_keyword
+    assert "expenses.category_id = categories.id" in tail
+    assert "expenses.spent_at >= '2026-11-01'" in tail
+    assert "expenses.spent_at < '2026-12-01'" in tail
+    assert "WHERE" not in sql
+
+
+def test_totals_by_category_groups_and_orders_by_category() -> None:
+    """Totals by category groups by category id and orders by name then id."""
+    sql = totals_sql()
+
+    assert "GROUP BY categories.id" in sql
+    assert "ORDER BY categories.name, categories.id" in sql

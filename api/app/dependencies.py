@@ -13,6 +13,7 @@ from app.repositories.health_repository import HealthRepository
 from app.services.category_service import CategoryService
 from app.services.expense_service import ExpenseService
 from app.services.health_service import HealthService
+from app.services.report_service import ReportService
 
 
 def get_health_repository(
@@ -110,3 +111,17 @@ def get_expense_service(
         An ``ExpenseService``.
     """
     return ExpenseService(expenses, categories, clock)
+
+
+def get_report_service(
+    expenses: Annotated[ExpenseRepository, Depends(get_expense_repository)],
+) -> ReportService:
+    """Provide a report service backed by the expense repository.
+
+    Args:
+        expenses: Expense repository.
+
+    Returns:
+        A ``ReportService``.
+    """
+    return ReportService(expenses)
