@@ -6,7 +6,9 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_session
+from app.repositories.category_repository import CategoryRepository
 from app.repositories.health_repository import HealthRepository
+from app.services.category_service import CategoryService
 from app.services.health_service import HealthService
 
 
@@ -36,3 +38,31 @@ def get_health_service(
         A ``HealthService``.
     """
     return HealthService(repository)
+
+
+def get_category_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> CategoryRepository:
+    """Provide a category repository bound to the request session.
+
+    Args:
+        session: Database session for the current request.
+
+    Returns:
+        A ``CategoryRepository``.
+    """
+    return CategoryRepository(session)
+
+
+def get_category_service(
+    repository: Annotated[CategoryRepository, Depends(get_category_repository)],
+) -> CategoryService:
+    """Provide a category service backed by the given repository.
+
+    Args:
+        repository: Repository used by the service.
+
+    Returns:
+        A ``CategoryService``.
+    """
+    return CategoryService(repository)
