@@ -189,6 +189,26 @@ def test_add_reraises_when_the_driver_error_has_no_diagnostic() -> None:
     session.rollback.assert_called_once_with()
 
 
+def test_get_returns_the_category_found_by_primary_key() -> None:
+    """Get looks the category up with ``session.get``."""
+    session = MagicMock()
+    category = make_category()
+    session.get.return_value = category
+
+    result = CategoryRepository(session).get(5)
+
+    assert result is category
+    session.get.assert_called_once_with(Category, 5)
+
+
+def test_get_returns_none_when_the_category_is_absent() -> None:
+    """Get returns None when the primary key matches nothing."""
+    session = MagicMock()
+    session.get.return_value = None
+
+    assert CategoryRepository(session).get(5) is None
+
+
 def test_list_returns_the_scalars_as_a_list() -> None:
     """List materializes the session result into a list."""
     session = MagicMock()

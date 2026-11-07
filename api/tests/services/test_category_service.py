@@ -43,13 +43,13 @@ def test_create_adds_a_category_built_from_the_input(
 ) -> None:
     """Create persists a category mirroring the payload and returns it."""
     stored = Category(id=1, name="Food", monthly_budget=Decimal("150.00"))
-    repository.add.return_value = stored  # type: ignore[attr-defined]
+    repository.add.return_value = stored
 
     result = CategoryService(repository).create(make_data())
 
     assert result is stored
-    repository.add.assert_called_once()  # type: ignore[attr-defined]
-    added = repository.add.call_args.args[0]  # type: ignore[attr-defined]
+    repository.add.assert_called_once()
+    added = repository.add.call_args.args[0]
     assert isinstance(added, Category)
     assert added.name == "Food"
     assert added.monthly_budget == Decimal("150.00")
@@ -60,7 +60,7 @@ def test_create_rejects_a_name_that_exists_in_another_case(
     repository: CategoryRepository,
 ) -> None:
     """Create raises a duplicate error and never adds when the name exists."""
-    repository.get_by_name_case_insensitive.return_value = Category(  # type: ignore[attr-defined]
+    repository.get_by_name_case_insensitive.return_value = Category(
         id=1, name="Food", monthly_budget=Decimal("1"), is_active=True
     )
     data = CategoryCreate(name="food", monthly_budget=Decimal("1"))
@@ -69,16 +69,16 @@ def test_create_rejects_a_name_that_exists_in_another_case(
         CategoryService(repository).create(data)
 
     assert raised.value.name == "food"
-    repository.get_by_name_case_insensitive.assert_called_once_with("food")  # type: ignore[attr-defined]
-    repository.add.assert_not_called()  # type: ignore[attr-defined]
+    repository.get_by_name_case_insensitive.assert_called_once_with("food")
+    repository.add.assert_not_called()
 
 
 def test_list_delegates_to_the_repository(repository: CategoryRepository) -> None:
     """List returns what the repository returns for the same pagination."""
     categories = [Category(id=1, name="A", monthly_budget=Decimal("1"))]
-    repository.list.return_value = categories  # type: ignore[attr-defined]
+    repository.list.return_value = categories
 
     result = CategoryService(repository).list(limit=10, offset=20)
 
     assert result is categories
-    repository.list.assert_called_once_with(limit=10, offset=20)  # type: ignore[attr-defined]
+    repository.list.assert_called_once_with(limit=10, offset=20)

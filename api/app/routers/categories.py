@@ -4,14 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.core.limits import DEFAULT_LIMIT, MAX_LIMIT, MAX_OFFSET
 from app.dependencies import get_category_service
 from app.schemas.category import CategoryCreate, CategoryRead
 from app.services.category_service import CategoryService
 
 router = APIRouter(prefix="/categories", tags=["categories"])
-
-# Upper bound for ``offset`` so it never overflows the database integer.
-MAX_OFFSET = 1_000_000
 
 CategoryServiceDep = Annotated[CategoryService, Depends(get_category_service)]
 
@@ -40,7 +38,7 @@ def create_category(data: CategoryCreate, service: CategoryServiceDep) -> Catego
 @router.get("", response_model=list[CategoryRead])
 def list_categories(
     service: CategoryServiceDep,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0, le=MAX_OFFSET)] = 0,
 ) -> list[CategoryRead]:
     """List categories ordered by name.
