@@ -1,0 +1,26 @@
+# Local environment and secrets
+.venv
+.env
+.env.*
+.env.example
+
+# Tests, dev tooling and caches
+tests
+requirements-dev.txt
+pyproject.toml
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+.coverage.*
+.mypy_cache
+coverage.xml
+htmlcov
+
+# Build/VCS metadata
+Dockerfile
+.dockerignore
+.git
+.git*
+*.md
