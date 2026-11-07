@@ -1,0 +1,18 @@
+# Claude Code (local only)
+CLAUDE.md
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment
+.env
+.env.*
+!.env.example
