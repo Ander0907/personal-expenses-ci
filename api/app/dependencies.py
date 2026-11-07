@@ -5,10 +5,13 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.core.clock import Clock, SystemClock
 from app.db.session import get_session
 from app.repositories.category_repository import CategoryRepository
+from app.repositories.expense_repository import ExpenseRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.category_service import CategoryService
+from app.services.expense_service import ExpenseService
 from app.services.health_service import HealthService
 
 
@@ -66,3 +69,44 @@ def get_category_service(
         A ``CategoryService``.
     """
     return CategoryService(repository)
+
+
+def get_clock() -> Clock:
+    """Provide the real clock.
+
+    Returns:
+        A ``SystemClock``.
+    """
+    return SystemClock()
+
+
+def get_expense_repository(
+    session: Annotated[Session, Depends(get_session)],
+) -> ExpenseRepository:
+    """Provide an expense repository bound to the request session.
+
+    Args:
+        session: Database session for the current request.
+
+    Returns:
+        An ``ExpenseRepository``.
+    """
+    return ExpenseRepository(session)
+
+
+def get_expense_service(
+    expenses: Annotated[ExpenseRepository, Depends(get_expense_repository)],
+    categories: Annotated[CategoryRepository, Depends(get_category_repository)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> ExpenseService:
+    """Provide an expense service with its collaborators.
+
+    Args:
+        expenses: Expense repository.
+        categories: Category repository.
+        clock: Clock used for the future-date rule.
+
+    Returns:
+        An ``ExpenseService``.
+    """
+    return ExpenseService(expenses, categories, clock)

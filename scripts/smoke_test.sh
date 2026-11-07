@@ -6,6 +6,9 @@
 #   1. GET  /health      -> the API reaches PostgreSQL (SELECT 1)
 #   2. POST /categories  -> a row is written to PostgreSQL
 #   3. GET  /categories  -> the same row is read back from PostgreSQL
+#   4. POST /expenses    -> expenses are written; over_budget is computed in SQL
+#   5. GET  /expenses    -> they are read back, filtered by category
+#   6. DELETE /expenses  -> one is removed and no longer listed
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:${API_PORT:-8000}}"
@@ -21,6 +24,7 @@ RUN_ID="$(date +%s)-$$"
 # does not understand MSYS paths such as /tmp.
 RESPONSE_STATUS=""
 RESPONSE_BODY=""
+CATEGORY_ID=""
 
 log() {
   echo "[smoke] $*"
@@ -47,6 +51,22 @@ http_request() {
 expect_status() {
   if [[ "$RESPONSE_STATUS" != "$1" ]]; then
     fail "$2: expected HTTP $1, got ${RESPONSE_STATUS:-none} (body: ${RESPONSE_BODY:-<empty>})"
+  fi
+}
+
+# json_id: prints the first "id" value of the last response body.
+json_id() {
+  if [[ "$RESPONSE_BODY" =~ \"id\":([0-9]+) ]]; then
+    echo "${BASH_REMATCH[1]}"
+  else
+    fail "No id in response body: ${RESPONSE_BODY:-<empty>}"
+  fi
+}
+
+# expect_body_lacks FRAGMENT CONTEXT
+expect_body_lacks() {
+  if [[ "$RESPONSE_BODY" == *"$1"* ]]; then
+    fail "$2: response unexpectedly contains $1 (body: ${RESPONSE_BODY:-<empty>})"
   fi
 }
 
@@ -81,12 +101,46 @@ check_health_body() {
   log "Health body OK: $actual"
 }
 
+check_expense_round_trip() {
+  local today first_id second_id
+  # UTC, matching the API container clock used by the no-future-dates rule.
+  today="$(date -u +%Y-%m-%d)"
+
+  http_request POST /expenses "{\"category_id\": ${CATEGORY_ID}, \"amount\": \"20.00\", \"description\": \"Smoke lunch\", \"spent_at\": \"${today}\"}"
+  expect_status 201 "Create expense within budget"
+  expect_body_contains '"over_budget":false' "Create expense within budget"
+  first_id="$(json_id)"
+  log "Created expense within budget: $RESPONSE_BODY"
+
+  http_request POST /expenses "{\"category_id\": ${CATEGORY_ID}, \"amount\": \"200.00\", \"description\": \"Smoke trip\", \"spent_at\": \"${today}\"}"
+  expect_status 201 "Create expense over budget"
+  expect_body_contains '"over_budget":true' "Create expense over budget"
+  second_id="$(json_id)"
+  log "Expense over budget is stored and flagged: $RESPONSE_BODY"
+
+  http_request GET "/expenses?category_id=${CATEGORY_ID}"
+  expect_status 200 "List expenses"
+  expect_body_contains "\"id\":${first_id}," "List expenses"
+  expect_body_contains "\"id\":${second_id}," "List expenses"
+  log "Both expenses read back from the database"
+
+  http_request DELETE "/expenses/${second_id}"
+  expect_status 204 "Delete expense"
+
+  http_request GET "/expenses?category_id=${CATEGORY_ID}"
+  expect_status 200 "List expenses after delete"
+  expect_body_contains "\"id\":${first_id}," "List expenses after delete"
+  expect_body_lacks "\"id\":${second_id}," "List expenses after delete"
+  log "Deleted expense ${second_id} is gone; expense ${first_id} remains"
+}
+
 check_category_round_trip() {
   local name="Smoke ${RUN_ID}"
 
   http_request POST /categories "{\"name\": \"${name}\", \"monthly_budget\": \"150.00\"}"
   expect_status 201 "Create category"
   expect_body_contains "\"name\":\"${name}\"" "Create category"
+  CATEGORY_ID="$(json_id)"
   log "Created category: $RESPONSE_BODY"
 
   http_request POST /categories "{\"name\": \"${name^^}\", \"monthly_budget\": \"10.00\"}"
@@ -104,7 +158,6 @@ check_category_round_trip() {
 wait_for_health
 check_health_body
 check_category_round_trip
-
-# Expense round-trip checks are added in the expenses feature.
+check_expense_round_trip
 
 echo "Smoke test passed"

@@ -6,6 +6,25 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
+def ensure_no_control_characters(value: str, field: str) -> str:
+    """Reject text containing control characters.
+
+    Args:
+        value: Text to check.
+        field: Field name used in the error message.
+
+    Returns:
+        The unchanged text.
+
+    Raises:
+        ValueError: If any character is in Unicode category ``Cc``.
+    """
+    if any(unicodedata.category(char) == "Cc" for char in value):
+        raise ValueError(f"{field} must not contain control characters")
+    return value
+
+
 Money = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 
 
@@ -38,9 +57,7 @@ class CategoryCreate(BaseModel):
         Raises:
             ValueError: If any character is in Unicode category ``Cc``.
         """
-        if any(unicodedata.category(char) == "Cc" for char in value):
-            raise ValueError("name must not contain control characters")
-        return value
+        return ensure_no_control_characters(value, "name")
 
 
 class CategoryRead(BaseModel):

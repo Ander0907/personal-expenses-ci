@@ -28,6 +28,17 @@ class CategoryRepository:
         """
         self._session = session
 
+    def get(self, category_id: int) -> Category | None:
+        """Find a category by primary key.
+
+        Args:
+            category_id: Primary key to look up.
+
+        Returns:
+            The category, or None.
+        """
+        return self._session.get(Category, category_id)
+
     def get_by_name_case_insensitive(self, name: str) -> Category | None:
         """Find a category whose name matches ignoring case.
 
