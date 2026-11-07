@@ -14,6 +14,7 @@ from app.dependencies import (
     get_expense_service,
     get_health_repository,
     get_health_service,
+    get_report_service,
 )
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.expense_repository import ExpenseRepository
@@ -21,6 +22,7 @@ from app.repositories.health_repository import HealthRepository
 from app.services.category_service import CategoryService
 from app.services.expense_service import ExpenseService
 from app.services.health_service import HealthService
+from app.services.report_service import ReportService
 
 
 def test_get_clock_returns_a_system_clock() -> None:
@@ -95,3 +97,15 @@ def test_get_category_service_uses_the_given_repository() -> None:
     assert isinstance(service, CategoryService)
     assert service.list(limit=1, offset=0) == []
     repository.list.assert_called_once_with(limit=1, offset=0)
+
+
+def test_get_report_service_uses_the_given_expense_repository() -> None:
+    """Get report service returns a service backed by the repository."""
+    expenses = create_autospec(ExpenseRepository, instance=True)
+    expenses.totals_by_category.return_value = []
+
+    service = get_report_service(expenses)
+
+    assert isinstance(service, ReportService)
+    assert service.monthly(2026, 11).categories == []
+    expenses.totals_by_category.assert_called_once()

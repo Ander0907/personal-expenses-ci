@@ -1,12 +1,32 @@
 """Repository for expense persistence."""
 
+import builtins
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from app.models.category import Category
 from app.models.expense import Expense
+
+
+@dataclass(frozen=True)
+class CategoryTotal:
+    """A category with its budget and spending over a period.
+
+    Attributes:
+        category_id: Category primary key.
+        name: Category name.
+        monthly_budget: Monthly budget of the category.
+        total: Amount spent in the period (zero when nothing was spent).
+    """
+
+    category_id: int
+    name: str
+    monthly_budget: Decimal
+    total: Decimal
 
 
 class ExpenseRepository:
@@ -105,3 +125,41 @@ class ExpenseRepository:
             Expense.spent_at < end,
         )
         return Decimal(self._session.scalar(statement) or 0)
+
+    # ``builtins.list``: inside this class ``list`` is the method above.
+    def totals_by_category(
+        self, start: date, end: date
+    ) -> builtins.list[CategoryTotal]:
+        """Sum spending per category over ``[start, end)`` in one query.
+
+        Every category is included, with a zero total when it has no expenses.
+
+        Args:
+            start: Inclusive lower date bound.
+            end: Exclusive upper date bound.
+
+        Returns:
+            One row per category, ordered by name then id.
+        """
+        statement = (
+            select(
+                Category.id,
+                Category.name,
+                Category.monthly_budget,
+                func.coalesce(func.sum(Expense.amount), 0),
+            )
+            .outerjoin(
+                Expense,
+                and_(
+                    Expense.category_id == Category.id,
+                    Expense.spent_at >= start,
+                    Expense.spent_at < end,
+                ),
+            )
+            .group_by(Category.id)
+            .order_by(Category.name, Category.id)
+        )
+        return [
+            CategoryTotal(category_id, name, budget, Decimal(total))
+            for category_id, name, budget, total in self._session.execute(statement)
+        ]
