@@ -1,103 +1,103 @@
-# Evidence guide
+# Guía de evidencias
 
-Ordered capture script for the evidence PDF of deliverable 1 ("Docker with two communicating containers"). Each item lists the rubric criterion it supports, the commands to run (bash; use Git Bash on Windows) and what must be visible in the screenshot.
+Guion ordenado de capturas para el PDF de evidencias de la entrega 1 ("Docker con dos contenedores comunicados"). Cada punto indica el criterio de la rúbrica que respalda, los comandos a ejecutar (bash; en Windows usar Git Bash) y lo que debe verse en la captura.
 
-Rubric: repository (15), API container (20), PostgreSQL container (15), Docker Compose (20), communication (35), good practices and security (15), CI (15), evidence PDF (15).
+Rúbrica: repositorio (15), contenedor de la API (20), contenedor de PostgreSQL (15), Docker Compose (20), comunicación (35), buenas prácticas y seguridad (15), CI (15), PDF de evidencias (15).
 
-## Before you start
+## Antes de empezar
 
-Run from the repository root:
+Ejecutar desde la raíz del repositorio:
 
 ```bash
-cp .env.example .env        # skip if .env already exists
-docker compose down -v      # clean state: no containers, no volume
+cp .env.example .env        # omitir si .env ya existe
+docker compose down -v      # estado limpio: sin contenedores ni volumen
 ```
 
-Tip: use a terminal wide enough that long lines do not wrap, and include the command in every capture.
+Consejo: usar una terminal lo bastante ancha para que las líneas largas no se corten, e incluir el comando en cada captura.
 
-## 1. Repository structure and commit history (Repository, 15)
+## 1. Estructura del repositorio e historial de commits (Repositorio, 15)
 
-- Open <https://github.com/Ander0907/personal-expenses-ci> and capture the file tree: `api/`, `scripts/`, `docs/`, `.github/`, `docker-compose.yml`, `.env.example`, `README.md`. There must be no `.env` file.
-- Capture the commit history (Commits page) showing clear, Conventional Commit messages.
-- Capture the README with the "Quick start" section visible.
+- Abrir <https://github.com/Ander0907/personal-expenses-ci> y capturar el árbol de archivos: `api/`, `scripts/`, `docs/`, `.github/`, `docker-compose.yml`, `.env.example`, `README.md`. No debe existir ningún archivo `.env`.
+- Capturar el historial de commits (página Commits) con mensajes claros en formato Conventional Commits.
+- Capturar el README con la sección "Inicio rápido" visible.
 
-## 2. Build the API image (API container, 20)
+## 2. Construir la imagen de la API (Contenedor de la API, 20)
 
 ```bash
 docker compose build api
 ```
 
-Visible: the build stages (builder and runtime, base image `python:3.12.16-slim-bookworm`) finishing without errors.
+Visible: las etapas del build (builder y runtime, imagen base `python:3.12.16-slim-bookworm`) terminando sin errores.
 
-## 3. Image list (API container, 20)
+## 3. Lista de imágenes (Contenedor de la API, 20)
 
 ```bash
 docker image ls personal-expenses-api
 ```
 
-Visible: the image `personal-expenses-api:local` and its size.
+Visible: la imagen `personal-expenses-api:local` y su tamaño.
 
-## 4. Dockerfile (API container, 20)
+## 4. Dockerfile (Contenedor de la API, 20)
 
 ```bash
 cat api/Dockerfile
 ```
 
-Visible: pinned `FROM python:3.12.16-slim-bookworm` (no `latest`), dependency installation, `USER app`, `EXPOSE 8000` and the `CMD` (`alembic upgrade head && exec uvicorn ...`). Capture in two parts if it does not fit one screen.
+Visible: `FROM python:3.12.16-slim-bookworm` con versión fija (sin `latest`), la instalación de dependencias, `USER app`, `EXPOSE 8000` y el `CMD` (`alembic upgrade head && exec uvicorn ...`). Capturar en dos partes si no cabe en una pantalla.
 
-## 5. Start the stack (Docker Compose, 20; PostgreSQL container, 15)
+## 5. Levantar el stack (Docker Compose, 20; Contenedor de PostgreSQL, 15)
 
 ```bash
 docker compose up -d
 docker compose ps
 ```
 
-Visible: services `db` and `api` both running with status `healthy` (re-run `docker compose ps` after about 30 seconds if still `starting`), and the port mapping `127.0.0.1:8000->8000/tcp` for `api` only.
+Visible: los servicios `db` y `api` en ejecución con estado `healthy` (volver a ejecutar `docker compose ps` tras unos 30 segundos si aún aparece `starting`), y el mapeo de puertos `127.0.0.1:8000->8000/tcp` solo para `api`.
 
-## 6. Compose file (Docker Compose, 20; PostgreSQL container, 15)
+## 6. Archivo de Compose (Docker Compose, 20; Contenedor de PostgreSQL, 15)
 
 ```bash
 cat docker-compose.yml
 ```
 
-Visible: services `api` and `db`, pinned image `postgres:17.11-bookworm`, `POSTGRES_*` variables, volume `expenses-db-data`, network `expenses-net`, `depends_on` with `condition: service_healthy`, healthchecks, and no `ports` on `db`.
+Visible: los servicios `api` y `db`, la imagen fija `postgres:17.11-bookworm`, las variables `POSTGRES_*`, el volumen `expenses-db-data`, la red `expenses-net`, `depends_on` con `condition: service_healthy`, los healthchecks y la ausencia de `ports` en `db`.
 
-## 7. Network (Docker Compose, 20; communication, 35)
+## 7. Red (Docker Compose, 20; Comunicación, 35)
 
 ```bash
 docker network inspect expenses-net
 ```
 
-Visible: the `Containers` section lists both the `api` and `db` containers attached to `expenses-net`.
+Visible: la sección `Containers` lista los contenedores `api` y `db` conectados a `expenses-net`.
 
-## 8. Volume (PostgreSQL container, 15)
+## 8. Volumen (Contenedor de PostgreSQL, 15)
 
 ```bash
 docker volume ls
 docker volume inspect expenses-db-data
 ```
 
-Visible: volume `expenses-db-data` in the list and its inspect output (driver `local`, mountpoint).
+Visible: el volumen `expenses-db-data` en la lista y la salida de inspect (driver `local`, mountpoint).
 
-## 9. Service-name resolution (communication, 35)
+## 9. Resolución por nombre de servicio (Comunicación, 35)
 
 ```bash
 docker compose exec api getent hosts db
 docker compose exec api env | grep DATABASE_HOST
 ```
 
-Visible: `db` resolving to an IP address on the Docker network, and `DATABASE_HOST=db` (not `localhost` or an IP). The password must not appear.
+Visible: `db` resolviendo a una dirección IP de la red de Docker, y `DATABASE_HOST=db` (no `localhost` ni una IP). La contraseña no debe aparecer.
 
-## 10. Health check through the database (communication, 35)
+## 10. Health check a través de la base de datos (Comunicación, 35)
 
 ```bash
 curl -i http://localhost:8000/health
 docker compose logs api | head -n 6
 ```
 
-Visible: `HTTP/1.1 200 OK` and body `{"status":"ok","database":"ok"}`; in the logs, `Running upgrade  -> 0001` (Alembic created the tables in `db` through the service name) before `Application startup complete`.
+Visible: `HTTP/1.1 200 OK` y el cuerpo `{"status":"ok","database":"ok"}`; en los logs, `Running upgrade  -> 0001` (Alembic creó las tablas en `db` usando el nombre del servicio) antes de `Application startup complete`.
 
-## 11. Write and read round trip through the API (communication, 35)
+## 11. Ida y vuelta de escritura y lectura a través de la API (Comunicación, 35)
 
 ```bash
 curl -i -X POST http://localhost:8000/categories \
@@ -113,18 +113,18 @@ curl -i "http://localhost:8000/expenses?category_id=1"
 curl -i "http://localhost:8000/reports/monthly?year=$(date -u +%Y)&month=$((10#$(date -u +%m)))"
 ```
 
-Capture each response (or one capture per pair). Visible: `201` with the created category, `201` with the created expense and `"over_budget":false`, `200` listing the same expense read back from PostgreSQL, and `200` with the report (`total_spent` `"20.00"`, `percent_used` `"13.33"`). The category `id` is 1 only on a fresh database; use the returned `id` otherwise.
+Capturar cada respuesta (o una captura por cada par). Visible: `201` con la categoría creada, `201` con el gasto creado y `"over_budget":false`, `200` listando el mismo gasto leído de vuelta desde PostgreSQL, y `200` con el reporte (`total_spent` `"20.00"`, `percent_used` `"13.33"`). El `id` de la categoría es 1 solo con una base de datos recién creada; en otro caso, usar el `id` devuelto.
 
-## 12. Read the data from inside the database container (communication, 35)
+## 12. Leer los datos desde dentro del contenedor de la base de datos (Comunicación, 35)
 
 ```bash
 docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, name, monthly_budget FROM categories;"'
 docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, category_id, amount, description, spent_at FROM expenses;"'
 ```
 
-The outer single quotes make the variables expand inside the `db` container, where they are defined. Visible: the rows created through the API. This proves the data really lives in PostgreSQL, accessed with the custom role from `.env` instead of the default `postgres` role.
+Las comillas simples externas hacen que las variables se expandan dentro del contenedor `db`, donde están definidas. Visible: las filas creadas a través de la API. Esto demuestra que los datos realmente viven en PostgreSQL, accedidos con el rol propio definido en `.env` en lugar del rol por defecto `postgres`.
 
-## 13. Data persistence (PostgreSQL container, 15)
+## 13. Persistencia de datos (Contenedor de PostgreSQL, 15)
 
 ```bash
 docker compose down
@@ -132,9 +132,9 @@ docker compose up -d --wait
 curl http://localhost:8000/categories
 ```
 
-Visible: after the restart the category created in step 11 is still returned (the volume survived).
+Visible: tras el reinicio, la categoría creada en el paso 11 sigue apareciendo (el volumen sobrevivió).
 
-Then show the reset:
+Luego mostrar el reinicio desde cero:
 
 ```bash
 docker compose down -v
@@ -142,18 +142,18 @@ docker compose up -d --wait
 curl http://localhost:8000/categories
 ```
 
-Visible: an empty list `[]` (the volume was deleted).
+Visible: una lista vacía `[]` (el volumen fue eliminado).
 
-## 14. Database not published (good practices and security, 15)
+## 14. Base de datos no publicada (Buenas prácticas y seguridad, 15)
 
 ```bash
 docker compose port db 5432
 docker compose ps
 ```
 
-Visible: `docker compose port db 5432` prints `:0` (no host port is bound), and the `db` row in `docker compose ps` shows only `5432/tcp` with no `127.0.0.1:...->` mapping, unlike `api`.
+Visible: `docker compose port db 5432` imprime `:0` (no hay puerto del host asociado), y la fila de `db` en `docker compose ps` muestra solo `5432/tcp`, sin mapeo `127.0.0.1:...->`, a diferencia de `api`.
 
-## 15. Secrets handling (good practices and security, 15)
+## 15. Manejo de secretos (Buenas prácticas y seguridad, 15)
 
 ```bash
 git check-ignore -v .env
@@ -161,17 +161,17 @@ cat .env.example
 git ls-files | grep -E '^\.env'
 ```
 
-Visible: the `.gitignore` rule that ignores `.env`; `.env.example` with fake values; `git ls-files` listing only `.env.example`.
+Visible: la regla de `.gitignore` que ignora `.env`; `.env.example` con valores falsos; `git ls-files` listando solo `.env.example`.
 
-## 16. .dockerignore (good practices and security, 15)
+## 16. .dockerignore (Buenas prácticas y seguridad, 15)
 
 ```bash
 cat api/.dockerignore
 ```
 
-Visible: `.env`, `.env.*`, `.venv`, `tests` and caches excluded.
+Visible: `.env`, `.env.*`, `.venv`, `tests` y las cachés excluidos.
 
-## 17. Non-root container (good practices and security, 15)
+## 17. Contenedor sin root (Buenas prácticas y seguridad, 15)
 
 ```bash
 docker compose exec api id
@@ -179,23 +179,23 @@ docker compose exec api id
 
 Visible: `uid=10001(app) gid=10001(app)`.
 
-## 18. GitHub Actions run (CI, 15)
+## 18. Ejecución de GitHub Actions (CI, 15)
 
-On <https://github.com/Ander0907/personal-expenses-ci/actions>:
+En <https://github.com/Ander0907/personal-expenses-ci/actions>:
 
-- Capture the workflow runs list with green checks.
-- Open one run and capture the summary showing both jobs green: "Lint & unit tests" and "Build image & smoke test".
-- Open the "Build image & smoke test" job and capture the expanded "Smoke test" step log (lines starting with `[smoke]`, ending with `Smoke test passed`).
-- Capture a run triggered by a `pull_request` event (the event name is shown in the run header) and the green check on the pull request page.
-- Capture the "Lint & unit tests" job with the `ruff` and `pytest` steps and the coverage table.
+- Capturar la lista de ejecuciones del workflow con checks en verde.
+- Abrir una ejecución y capturar el resumen con ambos jobs en verde: "Lint & unit tests" y "Build image & smoke test".
+- Abrir el job "Build image & smoke test" y capturar el log expandido del paso "Smoke test" (líneas que empiezan con `[smoke]` y terminan con `Smoke test passed`).
+- Capturar una ejecución disparada por un evento `pull_request` (el nombre del evento aparece en el encabezado de la ejecución) y el check verde en la página del pull request.
+- Capturar el job "Lint & unit tests" con los pasos de `ruff` y `pytest` y la tabla de cobertura.
 
-## 19. Architecture diagram (evidence PDF, 15)
+## 19. Diagrama de arquitectura (PDF de evidencias, 15)
 
-Open the repository README on GitHub and capture the rendered Mermaid diagrams (architecture flowchart and data model).
+Abrir el README del repositorio en GitHub y capturar los diagramas Mermaid renderizados (diagrama de arquitectura y modelo de datos).
 
-## Cleanup
+## Limpieza
 
 ```bash
-docker compose down -v                         # remove containers, network and the database volume
-docker image rm personal-expenses-api:local    # optional: remove the built image
+docker compose down -v                         # elimina contenedores, red y el volumen de la base de datos
+docker image rm personal-expenses-api:local    # opcional: elimina la imagen construida
 ```
