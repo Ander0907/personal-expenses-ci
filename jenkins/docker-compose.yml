@@ -1,0 +1,37 @@
+# Separate project name so it never collides with the app project "personal-expenses".
+name: jenkins
+
+services:
+  jenkins:
+    build: .
+    image: personal-expenses-jenkins:2.580.2
+    # Fixed name: the pipeline relies on `docker network connect expenses-net jenkins`
+    # and `--volumes-from jenkins`, which need a predictable container name.
+    container_name: jenkins
+    restart: unless-stopped
+    # Stay non-root (jenkins user); add the socket's group instead.
+    # On Docker Desktop the socket shows as root:root (GID 0, mode 660), hence the default 0.
+    # On a Linux host set DOCKER_GID to the host docker group (stat -c %g /var/run/docker.sock).
+    group_add:
+      - "${DOCKER_GID:-0}"
+    environment:
+      # Apply plugin changes baked into the image even when the jenkins-home volume already exists.
+      PLUGINS_FORCE_UPGRADE: "true"
+    ports:
+      # Localhost only. 50000 (inbound agents) is NOT published: builds run on the
+      # built-in node, so no remote agents connect.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      # SECURITY: access to the socket equals full control of the host Docker daemon.
+      # Accepted risk for a local course setup (no Docker-in-Docker).
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/login"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
+
+volumes:
+  jenkins-home:

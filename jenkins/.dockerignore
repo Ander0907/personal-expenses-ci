@@ -1,0 +1,3 @@
+# Build context only needs Dockerfile and plugins.txt.
+*
+!plugins.txt
