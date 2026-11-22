@@ -58,9 +58,10 @@ Visible: los servicios `db` y `api` en ejecución con estado `healthy` (volver a
 
 ```bash
 cat docker-compose.yml
+docker compose exec db env | grep '^POSTGRES_' | grep -v PASSWORD
 ```
 
-Visible: los servicios `api` y `db`, la imagen fija `postgres:17.11-bookworm`, las variables `POSTGRES_*`, el volumen `expenses-db-data`, la red `expenses-net`, `depends_on` con `condition: service_healthy`, los healthchecks y la ausencia de `ports` en `db`.
+Visible: los servicios `api` y `db`, la imagen fija `postgres:17.11-bookworm`, `env_file: .env` (sin credenciales en el archivo), el volumen `expenses-db-data`, la red `expenses-net`, `depends_on` con `condition: service_healthy`, los healthchecks y la ausencia de `ports` en `db`. La salida de `env` muestra `POSTGRES_USER` y `POSTGRES_DB` cargadas desde `.env` dentro del contenedor `db`; la contraseña se filtra a propósito.
 
 ## 7. Red (Docker Compose, 20; Comunicación, 35)
 
@@ -159,9 +160,12 @@ Visible: `docker compose port db 5432` imprime `:0` (no hay puerto del host asoc
 git check-ignore -v .env
 cat .env.example
 git ls-files | grep -E '^\.env'
+grep -n -i password docker-compose.yml
 ```
 
-Visible: la regla de `.gitignore` que ignora `.env`; `.env.example` con valores falsos; `git ls-files` listando solo `.env.example`.
+Visible: la regla de `.gitignore` que ignora `.env`; `.env.example` con valores falsos; `git ls-files` listando solo `.env.example`; `grep` sin ninguna coincidencia (el compose no contiene contraseñas).
+
+Advertencia: no captures `.env`, `docker compose config` (sin `--quiet`) ni `docker inspect` de los contenedores, porque muestran la contraseña real.
 
 ## 16. .dockerignore (Buenas prácticas y seguridad, 15)
 

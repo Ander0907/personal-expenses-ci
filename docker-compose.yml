@@ -3,10 +3,11 @@ name: personal-expenses
 services:
   db:
     image: postgres:17.11-bookworm
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required - copy .env.example to .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required - copy .env.example to .env}
-      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required - copy .env.example to .env}
+    # Credentials come from the untracked .env (created from .env.example);
+    # no secret is written in this file.
+    env_file:
+      - path: .env
+        required: true
     volumes:
       - expenses-db-data:/var/lib/postgresql/data
     networks:
@@ -30,10 +31,12 @@ services:
     # This tag must match the tag produced by docker/build-push-action in CI,
     # so that "docker compose up" (without --build) uses the prebuilt image.
     image: personal-expenses-api:local
+    # Credentials come from the untracked .env (created from .env.example);
+    # no secret is written in this file.
+    env_file:
+      - path: .env
+        required: true
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required - copy .env.example to .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required - copy .env.example to .env}
-      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required - copy .env.example to .env}
       # The compose service name resolves via Docker DNS on expenses-net.
       # Never use localhost or an IP address here.
       DATABASE_HOST: db
