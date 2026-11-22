@@ -57,7 +57,7 @@ erDiagram
 | pytest / pytest-cov | 9.2.0 / 7.1.0 |
 | ruff | 0.17.4 |
 | httpx (pruebas) | 0.28.1 |
-| Docker + Docker Compose v2 | ver requisitos previos |
+| Docker + Docker Compose v2.24+ | ver requisitos previos |
 | GitHub Actions | checkout v7.0.1, setup-python v7.1.0, setup-buildx-action v4.4.1, build-push-action v7.4.0 |
 
 El árbol completo de dependencias está fijado en `api/constraints.txt`.
@@ -69,10 +69,13 @@ El árbol completo de dependencias está fijado en `api/constraints.txt`.
 ├── docker-compose.yml        # servicios api + db, red expenses-net, volumen expenses-db-data
 ├── .env.example              # plantilla con valores falsos (copiar a .env)
 ├── .github/workflows/ci.yml  # pipeline de GitHub Actions
+├── Jenkinsfile               # pipeline de Jenkins (entrega 2)
+├── jenkins/                  # Jenkins en contenedor: Dockerfile, plugins.txt, docker-compose.yml
 ├── scripts/
 │   └── smoke_test.sh         # verificación de extremo a extremo contra el stack en ejecución (solo curl)
 ├── docs/
-│   └── evidence-guide.md     # guion de capturas para el PDF de evidencias
+│   ├── evidence-guide.md     # guion de capturas para el PDF de evidencias (entrega 1)
+│   └── jenkins-guide.md      # guía paso a paso de Jenkins y guion de capturas (entrega 2)
 └── api/                      # servicio de API (contexto de build de Docker)
     ├── Dockerfile            # build multi-etapa, usuario sin privilegios de root
     ├── .dockerignore
@@ -99,7 +102,7 @@ El código sigue una arquitectura por capas router -> service -> repository.
 
 ## Requisitos previos
 
-- Docker Desktop (Windows/macOS) o Docker Engine (Linux) con Docker Compose v2 (`docker compose`).
+- Docker Desktop (Windows/macOS) o Docker Engine (Linux) con Docker Compose v2.24+ (`docker compose`).
 - Git.
 - Python 3.12, solo si quieres ejecutar las pruebas fuera de Docker.
 
@@ -201,7 +204,7 @@ Los valores monetarios se serializan como cadenas de texto (por ejemplo `"150.00
 
 ## Configuración
 
-Docker Compose lee las variables desde `.env` (creado a partir de `.env.example`).
+Los servicios `db` y `api` cargan sus credenciales desde `.env` (creado a partir de `.env.example`) mediante `env_file`; `docker-compose.yml` no contiene credenciales.
 
 | Variable | Obligatoria | Descripción |
 |---|---|---|
@@ -212,12 +215,12 @@ Docker Compose lee las variables desde `.env` (creado a partir de `.env.example`
 | `DATABASE_HOST` | lo define Compose | `db` (el nombre del servicio). No lo definas en `.env`. |
 | `DATABASE_PORT` | lo define Compose | `5432`. |
 
-Compose falla con un mensaje claro si falta una variable obligatoria. Si cambias `API_PORT`, reemplaza `8000` en los comandos de este README según corresponda.
+Compose falla con un mensaje claro si no existe `.env`. Si existe pero le falta una variable obligatoria, el fallo aparece al arrancar (`db` termina con error o `/health` responde 500); revisa `docker compose logs`. Si cambias `API_PORT`, reemplaza `8000` en los comandos de este README según corresponda.
 
 ### Notas de seguridad
 
 - `.env` está excluido de git; `.env.example` está versionado y contiene solo valores falsos.
-- Ningún secreto aparece en el código, el Dockerfile, `docker-compose.yml` ni el workflow. CI copia `.env.example` a `.env` y usa esos valores de prueba no sensibles.
+- Ningún secreto aparece en el código, el Dockerfile, `docker-compose.yml` (que solo referencia `env_file: .env`) ni el workflow. CI copia `.env.example` a `.env` y usa esos valores de prueba no sensibles.
 - El contenedor de la API se ejecuta con un usuario sin privilegios de root (UID/GID 10001).
 - El puerto de la base de datos no se publica; el puerto de la API está enlazado solo a la interfaz de loopback.
 - `api/.dockerignore` mantiene `.env`, las pruebas, las cachés y los datos de control de versiones fuera del contexto de build.
@@ -247,12 +250,25 @@ El workflow `.github/workflows/ci.yml` se ejecuta en `push`, `pull_request` y `w
 
 Ejecuciones del pipeline: <https://github.com/Ander0907/personal-expenses-ci/actions>
 
+Además de GitHub Actions, el repositorio incluye un `Jenkinsfile` (etapas `Checkout`, `Lint & Unit Test`, `Build` e `Integration Test`, con bloque `post`) que ejecuta un Jenkins local en contenedor (`jenkins/`), consulta `development` con Poll SCM y construye y prueba los dos contenedores de la aplicación.
+
 ## Ramas
 
 - Ramas de larga duración: `development`, `release` y `main`.
 - El trabajo se realiza en ramas `feature/<name>` creadas desde `development` y fusionadas en `development` mediante pull requests (CI debe estar en verde).
 - Los mensajes de commit siguen [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `test:`, `docs:`, `ci:`, `chore:`).
 
+## Jenkins (entrega 2)
+
+Jenkins corre en un contenedor (`jenkins/jenkins:2.580.2-lts-jdk21` con Docker CLI y plugins fijados) y se levanta con:
+
+```bash
+docker compose -f jenkins/docker-compose.yml up -d --build --wait
+```
+
+Se publica solo en <http://127.0.0.1:8080>. Antes de ejecutar el pipeline, bajar el stack local con `docker compose down -v` (borra los datos locales): el pipeline usa los mismos nombres fijos de red, volumen y puerto, y se niega a continuar si detecta tu stack. Las credenciales (token de GitHub y `.env` de prueba) se guardan en Jenkins, nunca en el repositorio. La instalación, la configuración del job, el diagrama del flujo y el guion de capturas están en la [guía de Jenkins](docs/jenkins-guide.md).
+
 ## Evidencias para la entrega del curso
 
-Consulta la [guía de evidencias](docs/evidence-guide.md) para ver la lista ordenada de comandos y capturas de pantalla usados para armar el PDF de evidencias.
+- Entrega 1: consultar la [guía de evidencias](docs/evidence-guide.md) para ver la lista ordenada de comandos y capturas de pantalla usados para armar el PDF de evidencias.
+- Entrega 2: consultar la [guía de Jenkins](docs/jenkins-guide.md).
