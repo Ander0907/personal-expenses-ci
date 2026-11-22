@@ -69,10 +69,13 @@ El árbol completo de dependencias está fijado en `api/constraints.txt`.
 ├── docker-compose.yml        # servicios api + db, red expenses-net, volumen expenses-db-data
 ├── .env.example              # plantilla con valores falsos (copiar a .env)
 ├── .github/workflows/ci.yml  # pipeline de GitHub Actions
+├── Jenkinsfile               # pipeline de Jenkins (entrega 2)
+├── jenkins/                  # Jenkins en contenedor: Dockerfile, plugins.txt, docker-compose.yml
 ├── scripts/
 │   └── smoke_test.sh         # verificación de extremo a extremo contra el stack en ejecución (solo curl)
 ├── docs/
-│   └── evidence-guide.md     # guion de capturas para el PDF de evidencias
+│   ├── evidence-guide.md     # guion de capturas para el PDF de evidencias (entrega 1)
+│   └── jenkins-guide.md      # guía paso a paso de Jenkins y guion de capturas (entrega 2)
 └── api/                      # servicio de API (contexto de build de Docker)
     ├── Dockerfile            # build multi-etapa, usuario sin privilegios de root
     ├── .dockerignore
@@ -247,12 +250,25 @@ El workflow `.github/workflows/ci.yml` se ejecuta en `push`, `pull_request` y `w
 
 Ejecuciones del pipeline: <https://github.com/Ander0907/personal-expenses-ci/actions>
 
+Además de GitHub Actions, el repositorio incluye un `Jenkinsfile` (etapas `Checkout`, `Lint & Unit Test`, `Build` e `Integration Test`, con bloque `post`) que ejecuta un Jenkins local en contenedor (`jenkins/`), consulta `development` con Poll SCM y construye y prueba los dos contenedores de la aplicación.
+
 ## Ramas
 
 - Ramas de larga duración: `development`, `release` y `main`.
 - El trabajo se realiza en ramas `feature/<name>` creadas desde `development` y fusionadas en `development` mediante pull requests (CI debe estar en verde).
 - Los mensajes de commit siguen [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `test:`, `docs:`, `ci:`, `chore:`).
 
+## Jenkins (entrega 2)
+
+Jenkins corre en un contenedor (`jenkins/jenkins:2.580.2-lts-jdk21` con Docker CLI y plugins fijados) y se levanta con:
+
+```bash
+docker compose -f jenkins/docker-compose.yml up -d --build --wait
+```
+
+Se publica solo en <http://127.0.0.1:8080>. Antes de ejecutar el pipeline, bajar el stack local con `docker compose down -v` (borra los datos locales): el pipeline usa los mismos nombres fijos de red, volumen y puerto, y se niega a continuar si detecta tu stack. Las credenciales (token de GitHub y `.env` de prueba) se guardan en Jenkins, nunca en el repositorio. La instalación, la configuración del job, el diagrama del flujo y el guion de capturas están en la [guía de Jenkins](docs/jenkins-guide.md).
+
 ## Evidencias para la entrega del curso
 
-Consulta la [guía de evidencias](docs/evidence-guide.md) para ver la lista ordenada de comandos y capturas de pantalla usados para armar el PDF de evidencias.
+- Entrega 1: consultar la [guía de evidencias](docs/evidence-guide.md) para ver la lista ordenada de comandos y capturas de pantalla usados para armar el PDF de evidencias.
+- Entrega 2: consultar la [guía de Jenkins](docs/jenkins-guide.md).
